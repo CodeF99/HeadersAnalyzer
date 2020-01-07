@@ -43,21 +43,21 @@ import pickle
 class BurpExtender(IBurpExtender, IScannerCheck, ITab, IExtensionStateListener):
 
     def	registerExtenderCallbacks(self, callbacks):
-        
+
         print "Loading..."
 
         self._callbacks = callbacks
         self._callbacks.setExtensionName("Headers Analyzer")
         self._callbacks.registerScannerCheck(self)
         self._callbacks.registerExtensionStateListener(self)
-        
+
         self.initGui()
         self._callbacks.addSuiteTab(self)
         self.extensionLoaded()
 
         # Variable to keep a browsable structure of the issues find on each host
         # later used in the export function.
-        self.global_issues = {} 
+        self.global_issues = {}
 
         print "Loaded!"
 
@@ -80,10 +80,11 @@ class BurpExtender(IBurpExtender, IScannerCheck, ITab, IExtensionStateListener):
             'HstsCB' : self.HstsCB.isSelected(),
             'CorsCB' : self.CorsCB.isSelected(),
             'contentSecurityPolicyCB' : self.contentSecurityPolicyCB.isSelected(),
+            'sameSiteCB' : self.sameSiteCB.isSelected(),
             'xPermittedCrossDomainPoliciesCB' : self.xPermittedCrossDomainPoliciesCB.isSelected(),
-            'boringHeadersList' : self.getBoringHeadersList() 
+            'boringHeadersList' : self.getBoringHeadersList()
         }
-        
+
         for key, value in config.iteritems():   # For each config value
             self.saveExtensionSetting(key, pickle.dumps(value))
 
@@ -100,6 +101,7 @@ class BurpExtender(IBurpExtender, IScannerCheck, ITab, IExtensionStateListener):
             self.HstsCB.setSelected(pickle.loads(self._callbacks.loadExtensionSetting('HstsCB')))
             self.CorsCB.setSelected(pickle.loads(self._callbacks.loadExtensionSetting('CorsCB')))
             self.contentSecurityPolicyCB.setSelected(pickle.loads(self._callbacks.loadExtensionSetting('contentSecurityPolicyCB')))
+            self.sameSiteCB.setSelected(pickle.loads(self._callbacks.loadExtensionSetting('sameSiteCB')))
             self.xPermittedCrossDomainPoliciesCB.setSelected(pickle.loads(self._callbacks.loadExtensionSetting('xPermittedCrossDomainPoliciesCB')))
             self.boringHeadersList.setListData(pickle.loads(self._callbacks.loadExtensionSetting('boringHeadersList')))
 
@@ -112,7 +114,6 @@ class BurpExtender(IBurpExtender, IScannerCheck, ITab, IExtensionStateListener):
             self.xXssProtectionCB.setSelected(True)
             self.HstsCB.setSelected(True)
             self.CorsCB.setSelected(True)
-            self.contentSecurityPolicyCB.setSelected(True)
             self.xPermittedCrossDomainPoliciesCB.setSelected(True)
             empty = []
             self.boringHeadersList.setListData(empty)
@@ -142,6 +143,7 @@ class BurpExtender(IBurpExtender, IScannerCheck, ITab, IExtensionStateListener):
         self.HstsCB = swing.JCheckBox("Strict-Transport-Security (HSTS)")
         self.CorsCB = swing.JCheckBox("Access-Control-Allow-Origin (CORS)")
         self.contentSecurityPolicyCB = swing.JCheckBox("Content-Security-Policy")
+        self.sameSiteCB = swing.JCheckBox("sameSite attribute")
         self.xPermittedCrossDomainPoliciesCB = swing.JCheckBox("X-Permitted-Cross-Domain-Policies")
         self.outputLabel = swing.JLabel("Output:")
         self.outputLabel.setFont(Font("Tahoma", 1, 12));
@@ -162,105 +164,106 @@ class BurpExtender(IBurpExtender, IScannerCheck, ITab, IExtensionStateListener):
         layout.setHorizontalGroup(
             layout.createParallelGroup(swing.GroupLayout.Alignment.LEADING)
             .addGroup(layout.createSequentialGroup()
-                .addGap(33, 33, 33)
-                .addGroup(layout.createParallelGroup(swing.GroupLayout.Alignment.LEADING)
-                    .addGroup(layout.createSequentialGroup()
-                        .addGap(83, 83, 83)
-                        .addComponent(self.boringHeadersLabel))
-                    .addComponent(self.settingsLabel)
-                    .addGroup(layout.createSequentialGroup()
-                        .addComponent(self.interestingHeadersCB)
-                        .addGap(149, 149, 149)
-                        .addGroup(layout.createParallelGroup(swing.GroupLayout.Alignment.LEADING)
-                            .addComponent(self.securityHeadersCB)
-                            .addComponent(self.HstsCB)
-                            .addGroup(layout.createSequentialGroup()
-                                .addGroup(layout.createParallelGroup(swing.GroupLayout.Alignment.LEADING)
-                                    .addGroup(swing.GroupLayout.Alignment.TRAILING, layout.createParallelGroup(swing.GroupLayout.Alignment.LEADING)
-                                        .addGroup(layout.createSequentialGroup()
-                                            .addComponent(self.xFrameOptionsCB)
-                                            .addGap(83, 83, 83))
-                                        .addGroup(layout.createSequentialGroup()
-                                            .addComponent(self.xContentTypeOptionsCB)
-                                            .addGap(47, 47, 47)))
-                                    .addGroup(layout.createSequentialGroup()
-                                        .addComponent(self.xXssProtectionCB)
-                                        .addGap(83, 83, 83)))
-                                .addGroup(layout.createParallelGroup(swing.GroupLayout.Alignment.LEADING)
-                                    .addComponent(self.xPermittedCrossDomainPoliciesCB)
-                                    .addComponent(self.contentSecurityPolicyCB)
-                                    .addComponent(self.CorsCB)))))
-                    .addGroup(layout.createSequentialGroup()
-                        .addGroup(layout.createParallelGroup(swing.GroupLayout.Alignment.TRAILING)
-                            .addComponent(self.addButton)
-                            .addGroup(layout.createParallelGroup(swing.GroupLayout.Alignment.LEADING)
-                                .addComponent(self.outputLabel)
-                                .addGroup(layout.createParallelGroup(swing.GroupLayout.Alignment.TRAILING, False)
-                                    .addComponent(self.removeButton, swing.GroupLayout.DEFAULT_SIZE, swing.GroupLayout.DEFAULT_SIZE, lang.Short.MAX_VALUE)
-                                    .addComponent(self.pasteButton, swing.GroupLayout.DEFAULT_SIZE, swing.GroupLayout.DEFAULT_SIZE, lang.Short.MAX_VALUE)
-                                    .addComponent(self.loadButton, swing.GroupLayout.DEFAULT_SIZE, swing.GroupLayout.DEFAULT_SIZE, lang.Short.MAX_VALUE)
-                                    .addComponent(self.clearButton, swing.GroupLayout.DEFAULT_SIZE, swing.GroupLayout.PREFERRED_SIZE, lang.Short.MAX_VALUE))))
-                        .addPreferredGap(swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                        .addGroup(layout.createParallelGroup(swing.GroupLayout.Alignment.LEADING)
-                            .addComponent(self.jScrollPane1, swing.GroupLayout.PREFERRED_SIZE, 200, swing.GroupLayout.PREFERRED_SIZE)
-                            .addComponent(self.addTF, swing.GroupLayout.PREFERRED_SIZE, 200, swing.GroupLayout.PREFERRED_SIZE)
-                            .addComponent(self.jScrollPane2, swing.GroupLayout.PREFERRED_SIZE, 450, swing.GroupLayout.PREFERRED_SIZE)
-                            .addComponent(self.logsLabel)
-                            .addComponent(self.exportButton))))
-                .addContainerGap(26, lang.Short.MAX_VALUE))
+                      .addGap(33, 33, 33)
+                      .addGroup(layout.createParallelGroup(swing.GroupLayout.Alignment.LEADING)
+                                .addGroup(layout.createSequentialGroup()
+                                          .addGap(83, 83, 83)
+                                          .addComponent(self.boringHeadersLabel))
+                                .addComponent(self.settingsLabel)
+                                .addGroup(layout.createSequentialGroup()
+                                          .addComponent(self.interestingHeadersCB)
+                                          .addGap(149, 149, 149)
+                                          .addGroup(layout.createParallelGroup(swing.GroupLayout.Alignment.LEADING)
+                                                    .addComponent(self.securityHeadersCB)
+                                                    .addComponent(self.HstsCB)
+                                                    .addGroup(layout.createSequentialGroup()
+                                                              .addGroup(layout.createParallelGroup(swing.GroupLayout.Alignment.LEADING)
+                                                                        .addGroup(swing.GroupLayout.Alignment.TRAILING, layout.createParallelGroup(swing.GroupLayout.Alignment.LEADING)
+                                                                                  .addGroup(layout.createSequentialGroup()
+                                                                                            .addComponent(self.xFrameOptionsCB)
+                                                                                            .addGap(83, 83, 83))
+                                                                                  .addGroup(layout.createSequentialGroup()
+                                                                                            .addComponent(self.xContentTypeOptionsCB)
+                                                                                            .addGap(47, 47, 47)))
+                                                                        .addGroup(layout.createSequentialGroup()
+                                                                                  .addComponent(self.xXssProtectionCB)
+                                                                                  .addGap(83, 83, 83)))
+                                                              .addGroup(layout.createParallelGroup(swing.GroupLayout.Alignment.LEADING)
+                                                                        .addComponent(self.xPermittedCrossDomainPoliciesCB)
+                                                                        .addComponent(self.contentSecurityPolicyCB)
+                                                                        .addComponent(self.sameSiteCB)
+                                                                        .addComponent(self.CorsCB)))))
+                                .addGroup(layout.createSequentialGroup()
+                                          .addGroup(layout.createParallelGroup(swing.GroupLayout.Alignment.TRAILING)
+                                                    .addComponent(self.addButton)
+                                                    .addGroup(layout.createParallelGroup(swing.GroupLayout.Alignment.LEADING)
+                                                              .addComponent(self.outputLabel)
+                                                              .addGroup(layout.createParallelGroup(swing.GroupLayout.Alignment.TRAILING, False)
+                                                                        .addComponent(self.removeButton, swing.GroupLayout.DEFAULT_SIZE, swing.GroupLayout.DEFAULT_SIZE, lang.Short.MAX_VALUE)
+                                                                        .addComponent(self.pasteButton, swing.GroupLayout.DEFAULT_SIZE, swing.GroupLayout.DEFAULT_SIZE, lang.Short.MAX_VALUE)
+                                                                        .addComponent(self.loadButton, swing.GroupLayout.DEFAULT_SIZE, swing.GroupLayout.DEFAULT_SIZE, lang.Short.MAX_VALUE)
+                                                                        .addComponent(self.clearButton, swing.GroupLayout.DEFAULT_SIZE, swing.GroupLayout.PREFERRED_SIZE, lang.Short.MAX_VALUE))))
+                                          .addPreferredGap(swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                                          .addGroup(layout.createParallelGroup(swing.GroupLayout.Alignment.LEADING)
+                                                    .addComponent(self.jScrollPane1, swing.GroupLayout.PREFERRED_SIZE, 200, swing.GroupLayout.PREFERRED_SIZE)
+                                                    .addComponent(self.addTF, swing.GroupLayout.PREFERRED_SIZE, 200, swing.GroupLayout.PREFERRED_SIZE)
+                                                    .addComponent(self.jScrollPane2, swing.GroupLayout.PREFERRED_SIZE, 450, swing.GroupLayout.PREFERRED_SIZE)
+                                                    .addComponent(self.logsLabel)
+                                                    .addComponent(self.exportButton))))
+                      .addContainerGap(26, lang.Short.MAX_VALUE))
         )
 
         layout.setVerticalGroup(
             layout.createParallelGroup(swing.GroupLayout.Alignment.LEADING)
             .addGroup(layout.createSequentialGroup()
-                .addGap(41, 41, 41)
-                .addComponent(self.settingsLabel)
-                .addGap(31, 31, 31)
-                .addGroup(layout.createParallelGroup(swing.GroupLayout.Alignment.BASELINE)
-                    .addComponent(self.interestingHeadersCB)
-                    .addComponent(self.securityHeadersCB))
-                .addGap(26, 26, 26)
-                .addComponent(self.boringHeadersLabel)
-                .addPreferredGap(swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                .addGroup(layout.createParallelGroup(swing.GroupLayout.Alignment.LEADING)
-                    .addGroup(layout.createSequentialGroup()
-                        .addGroup(layout.createParallelGroup(swing.GroupLayout.Alignment.LEADING)
-                            .addGroup(layout.createSequentialGroup()
-                                .addComponent(self.pasteButton)
-                                .addPreferredGap(swing.LayoutStyle.ComponentPlacement.RELATED)
-                                .addComponent(self.loadButton)
-                                .addPreferredGap(swing.LayoutStyle.ComponentPlacement.RELATED)
-                                .addComponent(self.removeButton)
-                                .addPreferredGap(swing.LayoutStyle.ComponentPlacement.RELATED)
-                                .addComponent(self.clearButton))
-                            .addComponent(self.jScrollPane1, swing.GroupLayout.PREFERRED_SIZE, 138, swing.GroupLayout.PREFERRED_SIZE))
-                        .addGap(18, 18, 18)
-                        .addGroup(layout.createParallelGroup(swing.GroupLayout.Alignment.BASELINE)
-                            .addComponent(self.addButton)
-                            .addComponent(self.addTF, swing.GroupLayout.PREFERRED_SIZE, swing.GroupLayout.DEFAULT_SIZE, swing.GroupLayout.PREFERRED_SIZE)))
-                    .addGroup(layout.createSequentialGroup()
-                        .addGroup(layout.createParallelGroup(swing.GroupLayout.Alignment.BASELINE)
-                            .addComponent(self.xFrameOptionsCB)
-                            .addComponent(self.CorsCB))
-                        .addPreferredGap(swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                        .addGroup(layout.createParallelGroup(swing.GroupLayout.Alignment.LEADING)
-                            .addComponent(self.xContentTypeOptionsCB)
-                            .addComponent(self.contentSecurityPolicyCB, swing.GroupLayout.Alignment.TRAILING))
-                        .addPreferredGap(swing.LayoutStyle.ComponentPlacement.RELATED)
-                        .addGroup(layout.createParallelGroup(swing.GroupLayout.Alignment.BASELINE)
-                            .addComponent(self.xXssProtectionCB)
-                            .addComponent(self.xPermittedCrossDomainPoliciesCB))
-                        .addPreferredGap(swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                        .addComponent(self.HstsCB)))
-                .addGap(30, 30, 30)
-                .addComponent(self.outputLabel)
-                .addPreferredGap(swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(self.logsLabel)
-                .addGap(8, 8, 8)
-                .addComponent(self.jScrollPane2, swing.GroupLayout.PREFERRED_SIZE, 250, swing.GroupLayout.PREFERRED_SIZE)
-                .addPreferredGap(swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(self.exportButton)
-                .addContainerGap(swing.GroupLayout.DEFAULT_SIZE, lang.Short.MAX_VALUE))
+                      .addGap(41, 41, 41)
+                      .addComponent(self.settingsLabel)
+                      .addGap(31, 31, 31)
+                      .addGroup(layout.createParallelGroup(swing.GroupLayout.Alignment.BASELINE)
+                                .addComponent(self.interestingHeadersCB)
+                                .addComponent(self.securityHeadersCB))
+                      .addGap(26, 26, 26)
+                      .addComponent(self.boringHeadersLabel)
+                      .addPreferredGap(swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                      .addGroup(layout.createParallelGroup(swing.GroupLayout.Alignment.LEADING)
+                                .addGroup(layout.createSequentialGroup()
+                                          .addGroup(layout.createParallelGroup(swing.GroupLayout.Alignment.LEADING)
+                                                    .addGroup(layout.createSequentialGroup()
+                                                              .addComponent(self.pasteButton)
+                                                              .addPreferredGap(swing.LayoutStyle.ComponentPlacement.RELATED)
+                                                              .addComponent(self.loadButton)
+                                                              .addPreferredGap(swing.LayoutStyle.ComponentPlacement.RELATED)
+                                                              .addComponent(self.removeButton)
+                                                              .addPreferredGap(swing.LayoutStyle.ComponentPlacement.RELATED)
+                                                              .addComponent(self.clearButton))
+                                                    .addComponent(self.jScrollPane1, swing.GroupLayout.PREFERRED_SIZE, 138, swing.GroupLayout.PREFERRED_SIZE))
+                                          .addGap(18, 18, 18)
+                                          .addGroup(layout.createParallelGroup(swing.GroupLayout.Alignment.BASELINE)
+                                                    .addComponent(self.addButton)
+                                                    .addComponent(self.addTF, swing.GroupLayout.PREFERRED_SIZE, swing.GroupLayout.DEFAULT_SIZE, swing.GroupLayout.PREFERRED_SIZE)))
+                                .addGroup(layout.createSequentialGroup()
+                                          .addGroup(layout.createParallelGroup(swing.GroupLayout.Alignment.BASELINE)
+                                                    .addComponent(self.xFrameOptionsCB)
+                                                    .addComponent(self.CorsCB))
+                                          .addPreferredGap(swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                                          .addGroup(layout.createParallelGroup(swing.GroupLayout.Alignment.LEADING)
+                                                    .addComponent(self.xContentTypeOptionsCB)
+                                                    .addComponent(self.contentSecurityPolicyCB, swing.GroupLayout.Alignment.TRAILING))
+                                          .addPreferredGap(swing.LayoutStyle.ComponentPlacement.RELATED)
+                                          .addGroup(layout.createParallelGroup(swing.GroupLayout.Alignment.BASELINE)
+                                                    .addComponent(self.xXssProtectionCB)
+                                                    .addComponent(self.xPermittedCrossDomainPoliciesCB))
+                                          .addPreferredGap(swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                                          .addComponent(self.HstsCB).addComponent(self.sameSiteCB)))
+                      .addGap(30, 30, 30)
+                      .addComponent(self.outputLabel)
+                      .addPreferredGap(swing.LayoutStyle.ComponentPlacement.RELATED)
+                      .addComponent(self.logsLabel)
+                      .addGap(8, 8, 8)
+                      .addComponent(self.jScrollPane2, swing.GroupLayout.PREFERRED_SIZE, 250, swing.GroupLayout.PREFERRED_SIZE)
+                      .addPreferredGap(swing.LayoutStyle.ComponentPlacement.RELATED)
+                      .addComponent(self.exportButton)
+                      .addContainerGap(swing.GroupLayout.DEFAULT_SIZE, lang.Short.MAX_VALUE))
         )
 
     # ITab 
@@ -269,7 +272,7 @@ class BurpExtender(IBurpExtender, IScannerCheck, ITab, IExtensionStateListener):
 
     def getUiComponent(self):
         return self.tab
- 
+
     def consolidateDuplicateIssues(self, existingIssue, newIssue):
         if (existingIssue.getIssueName() == newIssue.getIssueName()):
             return -1
@@ -296,6 +299,7 @@ class BurpExtender(IBurpExtender, IScannerCheck, ITab, IExtensionStateListener):
             self.HstsCB.setEnabled(True)
             self.CorsCB.setEnabled(True)
             self.contentSecurityPolicyCB.setEnabled(True)
+            self.sameSiteCB.setEnabled(True)
             self.xPermittedCrossDomainPoliciesCB.setEnabled(True)
         else:
             self.xFrameOptionsCB.setEnabled(False)
@@ -303,31 +307,30 @@ class BurpExtender(IBurpExtender, IScannerCheck, ITab, IExtensionStateListener):
             self.xXssProtectionCB.setEnabled(False)
             self.HstsCB.setEnabled(False)
             self.CorsCB.setEnabled(False)
-            self.contentSecurityPolicyCB.setEnabled(False)
             self.xPermittedCrossDomainPoliciesCB.setEnabled(False)
 
     def paste(self, e):
         clipboard = self.getClipboardText()
-        
+
         if clipboard != None and clipboard != "":
             lines = clipboard.split('\n')
             current = self.getBoringHeadersList()
-            
+
             for line in lines:
                 if line not in current and not line.isspace():
                     current.append(line)
-            
+
             self.boringHeadersList.setListData(current)
 
     def clear(self, e):
         empty = []
-        self.boringHeadersList.setListData(empty) 
+        self.boringHeadersList.setListData(empty)
 
     def remove(self, e):
         indices = self.boringHeadersList.getSelectedIndices().tolist()
         current = self.getBoringHeadersList()
 
-        for index in reversed(indices):   
+        for index in reversed(indices):
             del current[index]
 
         self.boringHeadersList.setListData(current)
@@ -342,7 +345,7 @@ class BurpExtender(IBurpExtender, IScannerCheck, ITab, IExtensionStateListener):
             try:
                 f = open(filename, "r")
                 text = f.readlines()
-        
+
                 if text:
                     text = [line for line in text if not line.isspace()]
                     text = [line.rstrip('\n') for line in text]
@@ -362,7 +365,7 @@ class BurpExtender(IBurpExtender, IScannerCheck, ITab, IExtensionStateListener):
     def getBoringHeadersList(self):
         model = self.boringHeadersList.getModel()
         current = []
-   
+
         for i in range(0, model.getSize()):
             current.append(model.getElementAt(i))
 
@@ -374,7 +377,7 @@ class BurpExtender(IBurpExtender, IScannerCheck, ITab, IExtensionStateListener):
         output = ""
 
         for host,headers in self.global_issues.iteritems(): # For each host
-            output += "\nHost: " + host 
+            output += "\nHost: " + host
 
             for issue, headers_list in headers.iteritems():  # For each type of issue (interesting, missing, misconfigured)
                 if len(headers_list) > 0:
@@ -387,13 +390,13 @@ class BurpExtender(IBurpExtender, IScannerCheck, ITab, IExtensionStateListener):
         print output
 
         swing.JOptionPane.showMessageDialog(self.tab, "Output copied to the clipboard and sent to standard output!", "Information", swing.JOptionPane.INFORMATION_MESSAGE)
-    
+
     # Aux functions to get and set system clipboard
     def getClipboardText(self):
         clipboard = Toolkit.getDefaultToolkit().getSystemClipboard()
         contents = clipboard.getContents(None)
         gotText = (contents != None) and contents.isDataFlavorSupported(DataFlavor.stringFlavor)
-        
+
         if gotText:
             return contents.getTransferData(DataFlavor.stringFlavor)
         else:
@@ -402,34 +405,34 @@ class BurpExtender(IBurpExtender, IScannerCheck, ITab, IExtensionStateListener):
     def setClipboardText(self, text):
         clipboard = Toolkit.getDefaultToolkit().getSystemClipboard()
         clipboard.setContents(StringSelection(text), None)
-       
+
     # Burp Scanner invokes this method for each base request/response that is passively scanned.
-    def doPassiveScan(self, baseRequestResponse):       
+    def doPassiveScan(self, baseRequestResponse):
         self._requestResponse = baseRequestResponse
-        
+
         scan_issues = []
         scan_issues = self.findHeaders()
-        
+
         # doPassiveScan needs to return a list of scan issues, if any, and None otherwise
         if len(scan_issues) > 0:
             return scan_issues
         else:
             return None
-            
+
     def findHeaders(self):
         self._helpers = self._callbacks.getHelpers()
         self.scan_issues = []
-        
+
         response = self._requestResponse.getResponse()
         requestInfo = self._helpers.analyzeResponse(response)
         headers = requestInfo.getHeaders()
         headers_dict = {}
 
-        host = self._requestResponse.getHttpService().getHost() 
+        host = self._requestResponse.getHttpService().getHost()
 
         # If host hasn't been scanned before, we create it in global_issues
-        if host not in self.global_issues:  
-            self.global_issues[host] ={} 
+        if host not in self.global_issues:
+            self.global_issues[host] ={}
             self.global_issues[host]["Interesting"] = []
             self.global_issues[host]["Missing"] = []
             self.global_issues[host]["Misconfigured"] = []
@@ -442,20 +445,20 @@ class BurpExtender(IBurpExtender, IScannerCheck, ITab, IExtensionStateListener):
 
         if self.interestingHeadersCB.isSelected():
             self.findInteresting(host, headers_dict)
-        
+
         if self.securityHeadersCB.isSelected():
             self.findSecure(host, headers_dict)
-        
+
         return (self.scan_issues)
-        
+
     def findInteresting(self, host, headers):
         list_boring_headers = []
         model = self.boringHeadersList.getModel()
-   
+
         # Get list of boring headers from the GUI JList
         for i in range(0, model.getSize()):
             list_boring_headers.append(model.getElementAt(i))
-        
+
         issuename = "Interesting Header(s)"
         issuelevel = "Low"
         issuedetail = "<p>The response includes the following potentially interesting headers:</p><ul>"
@@ -467,24 +470,24 @@ class BurpExtender(IBurpExtender, IScannerCheck, ITab, IExtensionStateListener):
                 issuedetail += "<li>Header name: <b>" + header + "</b>. Header value: <b>" + headers[header] + "</b></li>"
 
                 log += "    Header name:" + header + " Header value:" + headers[header] + "\n"
-                
+
                 host = self._requestResponse.getHttpService().getHost()
                 report = header + ":" + headers[header]
                 if report not in self.global_issues[host]["Interesting"]:   # If header not already in the list we store it
                     self.global_issues[host]["Interesting"].append(report)
 
                 found += 1
-        
+
         issuedetail += "</ul>"
 
         if found > 0:
             # Create a ScanIssue object and append it to our list of issues, marking the reflected parameter value in the response.
             self.scan_issues.append(ScanIssue(self._requestResponse.getHttpService(),
-	            self._helpers.analyzeRequest(self._requestResponse).getUrl(), 
-                issuename, issuelevel, issuedetail))
+                                              self._helpers.analyzeRequest(self._requestResponse).getUrl(),
+                                              issuename, issuelevel, issuedetail))
 
             self.logsTA.append(log)
-          
+
     def findSecure(self, host, headers):
         issuename = "Lack or Misconfiguration of Security Header(s)"
         issuelevel = "Low"
@@ -494,7 +497,8 @@ class BurpExtender(IBurpExtender, IScannerCheck, ITab, IExtensionStateListener):
                       """
         badheaders = []
         missingsecurity = []
-        
+        sameSite = True
+
         if self.xFrameOptionsCB.isSelected():
             # X-Frame-Options
             try:
@@ -503,7 +507,7 @@ class BurpExtender(IBurpExtender, IScannerCheck, ITab, IExtensionStateListener):
                     badheaders.append("x-frame-options")
             except Exception as e:
                 missingsecurity.append("x-frame-options")
-        
+
         if self.xContentTypeOptionsCB.isSelected():
             # X-Content-Type-Options: nosniff
             try:
@@ -530,7 +534,7 @@ class BurpExtender(IBurpExtender, IScannerCheck, ITab, IExtensionStateListener):
                     badheaders.append("strict-transport-security")
             except Exception as e:
                 missingsecurity.append("strict-transport-security")
-        
+
         if self.CorsCB.isSelected():
             # Access-Control-Allow-Origin (CORS)
             try:
@@ -543,8 +547,20 @@ class BurpExtender(IBurpExtender, IScannerCheck, ITab, IExtensionStateListener):
         if self.contentSecurityPolicyCB.isSelected():
             # Content-Security-Policy
             if not ("content-security-policy" in headers or "x-content-security-policy" in headers or "x-webkit-csp" in headers):
-                        missingsecurity.append("content-security-policy")    
-       
+                missingsecurity.append("content-security-policy")
+
+        if self.sameSiteCB.isSelected():
+            if not ("sameSite" in headers["set-cookie"]):
+                missingsecurity.append("set-cookie: sameSite attribute missing")
+                #sameSite does not exist in header
+            else:		
+                try:
+                    if re.search("LAX|STRICT", headers["set-cookie"], re.IGNORECASE) is None:
+                        missingsecurity.append("set-cookie: sameSite missing LAX or STRICT attribute-value")
+			#sameSite flag exists but wrong attribute is set
+                except:
+                    missingsecurity.append("set-cookie: sameSite attribute error - check headers")
+
         if self.xPermittedCrossDomainPoliciesCB.isSelected():
             # X-Permitted-Cross-Domain-Policies
             try:
@@ -553,34 +569,34 @@ class BurpExtender(IBurpExtender, IScannerCheck, ITab, IExtensionStateListener):
                     badheaders.append("x-permitted-cross-domain-policies")
             except Exception as e:
                 missingsecurity.append("x-permitted-cross-domain-policies")
-        
-        if len(badheaders) > 0 or len(missingsecurity) > 0:     
+
+        if len(badheaders) > 0 or len(missingsecurity) > 0:
             if len(badheaders) > 0:
                 issuedetail += "<p>Potentially misconfigured headers:</p><ul>"
                 log = "[+] Potentially miconfigured headers found: " + host + "\n"
-                
+
                 for bad in badheaders:
                     issuedetail += "<li>Header name: <b>" + bad + "</b>. Header value: <b>" + headers[bad] + "</b></li>"
 
                     log += "    Header name:" + bad + " Header value:" + headers[bad] + "\n"
-                    
+
                     host = self._requestResponse.getHttpService().getHost()
                     report = bad + ":" + headers[bad]
                     if report not in self.global_issues[host]["Misconfigured"]:     # If header not already in the list we store it
                         self.global_issues[host]["Misconfigured"].append(report)
-            
+
                 issuedetail += "</ul>"
-                
+
                 self.logsTA.append(log)
-                    
+
             if len(missingsecurity) > 0:
                 issuedetail += "<p>Missing headers:</p><ul>"
                 log = "[+] Missing security headers: " + host + "\n"
-                
+
                 for missing in missingsecurity:
                     issuedetail += "<li>Header name: <b>" + missing + "</b>.</li>"
                     log += "    Header name:" + missing + "\n"
-                
+
                     host = self._requestResponse.getHttpService().getHost()
                     if missing not in self.global_issues[host]["Missing"]:      # If header not already in the list we store it
                         self.global_issues[host]["Missing"].append(missing)
@@ -592,8 +608,8 @@ class BurpExtender(IBurpExtender, IScannerCheck, ITab, IExtensionStateListener):
             # Create a ScanIssue object and append it to our list of issues, marking
             # the reflected parameter value in the response.
             self.scan_issues.append(ScanIssue(self._requestResponse.getHttpService(),
-	            self._helpers.analyzeRequest(self._requestResponse).getUrl(),
-                issuename, issuelevel, issuedetail))
+                                              self._helpers.analyzeRequest(self._requestResponse).getUrl(),
+                                              issuename, issuelevel, issuedetail))
 
 # Implementation of the IScanIssue interface with simple constructor and getter methods
 class ScanIssue(IScanIssue):
@@ -611,7 +627,7 @@ class ScanIssue(IScanIssue):
         return None
 
     def getHttpService(self):
-        return self._httpservice 
+        return self._httpservice
 
     def getRemediationDetail(self):
         return None
